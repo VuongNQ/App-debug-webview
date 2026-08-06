@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
@@ -17,12 +18,40 @@ class _PreviewScreenState extends State<PreviewScreen> {
   bool _loading = true;
   bool _canGoBack = false;
   bool _canGoForward = false;
+  bool _loadFailed = false;
   String _currentUrl = '';
+  Timer? _loadTimeout;
 
   @override
   void initState() {
     super.initState();
     _currentUrl = widget.config.url;
+  }
+
+  @override
+  void dispose() {
+    _loadTimeout?.cancel();
+    super.dispose();
+  }
+
+  void _startLoadTimeout() {
+    _loadTimeout?.cancel();
+    _loadTimeout = Timer(const Duration(seconds: 15), () {
+      if (!mounted || !_loading) {
+        return;
+      }
+      setState(() {
+        _loading = false;
+        _loadFailed = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The page did not load in time. Check the URL or network connection.',
+          ),
+        ),
+      );
+    });
   }
 
   Future<void> _openExternalUrl(String link) async {
@@ -153,23 +182,33 @@ class _PreviewScreenState extends State<PreviewScreen> {
               );
             },
             onLoadStart: (controller, url) {
+              _loadTimeout?.cancel();
               setState(() {
                 _loading = true;
+                _loadFailed = false;
                 _currentUrl = url?.toString() ?? _currentUrl;
               });
+              _startLoadTimeout();
             },
             onLoadStop: (controller, url) async {
+              _loadTimeout?.cancel();
               final canBack = await controller.canGoBack();
               final canForward = await controller.canGoForward();
               setState(() {
                 _loading = false;
+                _loadFailed = false;
                 _currentUrl = url?.toString() ?? _currentUrl;
                 _canGoBack = canBack;
                 _canGoForward = canForward;
               });
             },
             onReceivedError: (controller, request, error) {
-              setState(() => _loading = false);
+              if (!(request.isForMainFrame ?? true)) return;
+              _loadTimeout?.cancel();
+              setState(() {
+                _loading = false;
+                _loadFailed = true;
+              });
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
@@ -180,6 +219,39 @@ class _PreviewScreenState extends State<PreviewScreen> {
             },
           ),
           if (_loading) const Center(child: CircularProgressIndicator()),
+          if (_loadFailed)
+            Positioned.fill(
+              child: Container(
+                color: Colors.white.withValues(alpha: 0.95),
+                child: Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Text(
+                          'Unable to load the page.',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Please check the URL or your network connection.',
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => _controller?.reload(),
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
           if (widget.config.debuggingEnabled && Platform.isAndroid)
             Positioned(
               bottom: 0,
