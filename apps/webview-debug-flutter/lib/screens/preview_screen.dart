@@ -44,23 +44,13 @@ class _PreviewScreenState extends State<PreviewScreen> {
         _loading = false;
         _loadFailed = true;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'The page did not load in time. Check the URL or network connection.',
-            ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'The page did not load in time. Check the URL or network connection.',
           ),
-        );
-      }
-    });
-  }
-
-  void _resetLoadState() {
-    _loadTimeout?.cancel();
-    setState(() {
-      _loading = true;
-      _loadFailed = false;
+        ),
+      );
     });
   }
 
@@ -192,11 +182,13 @@ class _PreviewScreenState extends State<PreviewScreen> {
               );
             },
             onLoadStart: (controller, url) {
-              _resetLoadState();
-              _startLoadTimeout();
+              _loadTimeout?.cancel();
               setState(() {
+                _loading = true;
+                _loadFailed = false;
                 _currentUrl = url?.toString() ?? _currentUrl;
               });
+              _startLoadTimeout();
             },
             onLoadStop: (controller, url) async {
               _loadTimeout?.cancel();
@@ -211,6 +203,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
               });
             },
             onReceivedError: (controller, request, error) {
+              if (!(request.isForMainFrame ?? true)) return;
               _loadTimeout?.cancel();
               setState(() {
                 _loading = false;
@@ -229,7 +222,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
           if (_loadFailed)
             Positioned.fill(
               child: Container(
-                color: Colors.white.withOpacity(0.95),
+                color: Colors.white.withValues(alpha: 0.95),
                 child: Center(
                   child: Padding(
                     padding: const EdgeInsets.all(24),
