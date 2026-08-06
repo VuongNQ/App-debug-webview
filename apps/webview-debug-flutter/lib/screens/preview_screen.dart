@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'config_screen.dart';
 
 class PreviewScreen extends StatefulWidget {
@@ -12,7 +13,7 @@ class PreviewScreen extends StatefulWidget {
 }
 
 class _PreviewScreenState extends State<PreviewScreen> {
-  late final WebViewController _controller;
+  InAppWebViewController? _controller;
   bool _loading = true;
   bool _canGoBack = false;
   bool _canGoForward = false;
@@ -22,47 +23,14 @@ class _PreviewScreenState extends State<PreviewScreen> {
   void initState() {
     super.initState();
     _currentUrl = widget.config.url;
+  }
 
-    _controller = WebViewController()
-      ..setJavaScriptMode(widget.config.javaScriptEnabled
-          ? JavaScriptMode.unrestricted
-          : JavaScriptMode.disabled)
-      ..setNavigationDelegate(NavigationDelegate(
-        onPageStarted: (url) => setState(() {
-          _loading = true;
-          _currentUrl = url;
-        }),
-        onPageFinished: (url) async {
-          final canBack = await _controller.canGoBack();
-          final canForward = await _controller.canGoForward();
-          setState(() {
-            _loading = false;
-            _canGoBack = canBack;
-            _canGoForward = canForward;
-          });
-        },
-        onWebResourceError: (error) {
-          setState(() => _loading = false);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                  content: Text(
-                      'Error: ${error.description} (${error.errorCode})')),
-            );
-          }
-        },
-      ));
-
-    if (widget.config.userAgent.isNotEmpty) {
-      _controller.setUserAgent(widget.config.userAgent);
+  Future<void> _openExternalUrl(String link) async {
+    final uri = Uri.tryParse(link);
+    if (uri == null) return;
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
-
-    // Enable remote debugging on Android
-    if (Platform.isAndroid) {
-      WebViewController.enableDebugging(widget.config.debuggingEnabled);
-    }
-
-    _controller.loadRequest(Uri.parse(widget.config.url));
   }
 
   @override
@@ -85,25 +53,133 @@ class _PreviewScreenState extends State<PreviewScreen> {
           IconButton(
             icon: Icon(Icons.arrow_back_ios,
                 color: _canGoBack ? Colors.white : Colors.white38),
-            onPressed: _canGoBack ? () => _controller.goBack() : null,
+            onPressed: _canGoBack ? () => _controller?.goBack() : null,
           ),
           IconButton(
             icon: Icon(Icons.arrow_forward_ios,
                 color: _canGoForward ? Colors.white : Colors.white38),
-            onPressed: _canGoForward ? () => _controller.goForward() : null,
+            onPressed: _canGoForward ? () => _controller?.goForward() : null,
           ),
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => _controller.reload(),
+            onPressed: () => _controller?.reload(),
           ),
         ],
         elevation: 0,
       ),
       body: Stack(
         children: [
-          WebViewWidget(controller: _controller),
-          if (_loading)
-            const Center(child: CircularProgressIndicator()),
+          InAppWebView(
+            initialUrlRequest: URLRequest(url: WebUri(widget.config.url)),
+            initialSettings: InAppWebViewSettings(
+              supportZoom: true,
+              builtInZoomControls: true,
+              enableViewportScale: true,
+              ignoresViewportScaleLimits: true,
+              displayZoomControls: false,
+              useWideViewPort: true,
+              loadWithOverviewMode: true,
+              isInspectable:
+                  widget.config.debuggingEnabled && Platform.isAndroid,
+              javaScriptEnabled: widget.config.javaScriptEnabled,
+              domStorageEnabled: widget.config.domStorageEnabled,
+              useOnLoadResource: true,
+              geolocationEnabled: true,
+              javaScriptCanOpenWindowsAutomatically: true,
+              allowUniversalAccessFromFileURLs: true,
+              allowFileAccessFromFileURLs: true,
+              mediaPlaybackRequiresUserGesture: false,
+              allowsInlineMediaPlayback: true,
+              iframeAllow:
+                  'camera; microphone; clipboard-write; geolocation; web-share; fullscreen',
+              applicationNameForUserAgent: '',
+              transparentBackground: false,
+              userAgent: widget.config.userAgent.isEmpty
+                  ? null
+                  : widget.config.userAgent,
+              mixedContentMode: widget.config.allowMixedContent
+                  ? MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW
+                  : MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
+            ),
+            onWebViewCreated: (controller) {
+              _controller = controller;
+              controller.addJavaScriptHandler(
+                handlerName: 'onBackPressed',
+                callback: (args) {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  }
+                },
+              );
+              controller.addJavaScriptHandler(
+                handlerName: 'showLandscapeActions',
+                callback: (args) async {
+                  if (args.isNotEmpty) {
+                    final show = args.first as bool? ?? true;
+                    debugPrint('showLandscapeActions: $show');
+                  }
+                },
+              );
+              controller.addJavaScriptHandler(
+                handlerName: 'rotate',
+                callback: (args) async {
+                  if (args.isNotEmpty) {
+                    final orientation = args.first.toString().toLowerCase();
+                    debugPrint('rotate: $orientation');
+                  }
+                },
+              );
+              controller.addJavaScriptHandler(
+                handlerName: 'openExternalApplication',
+                callback: (args) async {
+                  if (args.isNotEmpty) {
+                    final link = args.first.toString();
+                    await _openExternalUrl(link);
+                  }
+                },
+              );
+              controller.addJavaScriptHandler(
+                handlerName: 'openInAppWebView',
+                callback: (args) async {
+                  if (args.isNotEmpty) {
+                    final link = args.first.toString();
+                    if (link.isNotEmpty) {
+                      await _controller?.loadUrl(
+                        urlRequest: URLRequest(url: WebUri(link)),
+                      );
+                    }
+                  }
+                },
+              );
+            },
+            onLoadStart: (controller, url) {
+              setState(() {
+                _loading = true;
+                _currentUrl = url?.toString() ?? _currentUrl;
+              });
+            },
+            onLoadStop: (controller, url) async {
+              final canBack = await controller.canGoBack();
+              final canForward = await controller.canGoForward();
+              setState(() {
+                _loading = false;
+                _currentUrl = url?.toString() ?? _currentUrl;
+                _canGoBack = canBack;
+                _canGoForward = canForward;
+              });
+            },
+            onReceivedError: (controller, request, error) {
+              setState(() => _loading = false);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Error: ${error.description}'),
+                  ),
+                );
+              }
+            },
+          ),
+          if (_loading) const Center(child: CircularProgressIndicator()),
           if (widget.config.debuggingEnabled && Platform.isAndroid)
             Positioned(
               bottom: 0,

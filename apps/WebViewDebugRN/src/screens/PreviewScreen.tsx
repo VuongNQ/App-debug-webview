@@ -87,16 +87,14 @@ const PreviewScreen: React.FC = () => {
 
       {loading && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#4a90e2" />
+          <ActivityIndicator size="large" color="#818cf8" />
         </View>
       )}
 
       {/* Debug hint */}
       {config.debuggingEnabled && Platform.OS === 'android' && (
         <View style={styles.debugBanner}>
-          <Text style={styles.debugText}>
-            🔍 Remote debugging: chrome://inspect
-          </Text>
+          <Text style={styles.debugText}>🔍 Remote debugging: chrome://inspect</Text>
         </View>
       )}
     </View>
@@ -104,11 +102,11 @@ const PreviewScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#fff'},
+  container: {flex: 1, backgroundColor: '#020617'},
   toolbar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f172a',
     paddingHorizontal: 8,
     paddingVertical: 6,
     gap: 4,
@@ -120,10 +118,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   navButtonDisabled: {opacity: 0.3},
-  navButtonText: {color: '#fff', fontSize: 20, fontWeight: '700'},
+  navButtonText: {color: '#f8fafc', fontSize: 20, fontWeight: '700'},
   urlText: {
     flex: 1,
-    color: '#ccc',
+    color: '#cbd5e1',
     fontSize: 13,
     paddingHorizontal: 4,
   },
@@ -132,21 +130,21 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     alignItems: 'center',
   },
-  configButtonText: {color: '#fff', fontSize: 18},
-  webview: {flex: 1},
+  configButtonText: {color: '#f8fafc', fontSize: 18},
+  webview: {flex: 1, backgroundColor: '#020617'},
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.8)',
+    backgroundColor: 'rgba(2, 6, 23, 0.85)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   debugBanner: {
-    backgroundColor: '#1a1a2e',
+    backgroundColor: '#0f172a',
     paddingHorizontal: 12,
     paddingVertical: 6,
     alignItems: 'center',
   },
-  debugText: {color: '#afd', fontSize: 12},
+  debugText: {color: '#a5b4fc', fontSize: 12},
 });
 
 export default PreviewScreen;
