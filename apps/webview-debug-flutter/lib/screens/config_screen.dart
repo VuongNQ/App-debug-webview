@@ -194,26 +194,26 @@ class _ConfigScreenState extends State<ConfigScreen> {
             _SettingRow(
               label: 'JavaScript Enabled',
               value: _config.javaScriptEnabled,
-              onChanged: (v) =>
-                  setState(() => _config = _config.copyWith(javaScriptEnabled: v)),
+              onChanged: (v) => setState(
+                  () => _config = _config.copyWith(javaScriptEnabled: v)),
             ),
             _SettingRow(
               label: 'DOM Storage Enabled',
               value: _config.domStorageEnabled,
-              onChanged: (v) =>
-                  setState(() => _config = _config.copyWith(domStorageEnabled: v)),
+              onChanged: (v) => setState(
+                  () => _config = _config.copyWith(domStorageEnabled: v)),
             ),
             _SettingRow(
               label: 'Allow Mixed Content',
               value: _config.allowMixedContent,
-              onChanged: (v) =>
-                  setState(() => _config = _config.copyWith(allowMixedContent: v)),
+              onChanged: (v) => setState(
+                  () => _config = _config.copyWith(allowMixedContent: v)),
             ),
             _SettingRow(
               label: 'Remote Debugging Enabled',
               value: _config.debuggingEnabled,
-              onChanged: (v) =>
-                  setState(() => _config = _config.copyWith(debuggingEnabled: v)),
+              onChanged: (v) => setState(
+                  () => _config = _config.copyWith(debuggingEnabled: v)),
             ),
             const SizedBox(height: 32),
             SizedBox(
@@ -270,11 +270,14 @@ class _SettingRow extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: const Color(0xFFEEEEEE)),
         ),
-        child: SwitchListTile(
-          title: Text(label, style: const TextStyle(fontSize: 15)),
-          value: value,
-          onChanged: onChanged,
-          activeColor: const Color(0xFF4A90E2),
+        child: Material(
+          color: Colors.transparent,
+          child: SwitchListTile(
+            title: Text(label, style: const TextStyle(fontSize: 15)),
+            value: value,
+            onChanged: onChanged,
+            activeColor: const Color(0xFF4A90E2),
+          ),
         ),
       );
 }
