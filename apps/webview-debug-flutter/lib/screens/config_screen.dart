@@ -142,7 +142,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _SectionLabel('URL'),
+            const _SectionLabel('URL'),
             const SizedBox(height: 6),
             TextField(
               controller: _urlController,
@@ -163,7 +163,7 @@ class _ConfigScreenState extends State<ConfigScreen> {
               autocorrect: false,
             ),
             const SizedBox(height: 16),
-            _SectionLabel('Custom User Agent (optional)'),
+            const _SectionLabel('Custom User Agent (optional)'),
             const SizedBox(height: 6),
             TextField(
               controller: _userAgentController,
@@ -274,7 +274,7 @@ class _SettingRow extends StatelessWidget {
           title: Text(label, style: const TextStyle(fontSize: 15)),
           value: value,
           onChanged: onChanged,
-          activeColor: const Color(0xFF4A90E2),
+          activeThumbColor: const Color(0xFF4A90E2),
         ),
       );
 }
