@@ -74,6 +74,7 @@ const ConfigScreen: React.FC = () => {
         autoCorrect={false}
         keyboardType="url"
         placeholder="https://example.com"
+        placeholderTextColor="#94a3b8"
       />
 
       <Text style={styles.label}>Custom User Agent (optional)</Text>
@@ -84,6 +85,7 @@ const ConfigScreen: React.FC = () => {
         autoCapitalize="none"
         autoCorrect={false}
         placeholder="Leave blank to use default"
+        placeholderTextColor="#94a3b8"
       />
 
       <Text style={styles.sectionTitle}>WebView Settings</Text>
@@ -144,64 +146,64 @@ const Row: React.FC<{
 }> = ({label, value, onToggle}) => (
   <View style={styles.row}>
     <Text style={styles.rowLabel}>{label}</Text>
-    <Switch value={value} onValueChange={onToggle} />
+    <Switch value={value} onValueChange={onToggle} trackColor={{false: '#64748b', true: '#4f46e5'}} thumbColor={value ? '#eef2ff' : '#f8fafc'} />
   </View>
 );
 
 const styles = StyleSheet.create({
-  container: {flex: 1, backgroundColor: '#f5f5f5'},
+  container: {flex: 1, backgroundColor: '#020617'},
   content: {padding: 20, paddingBottom: 40},
-  title: {fontSize: 22, fontWeight: '700', marginBottom: 24, color: '#1a1a2e'},
+  title: {fontSize: 22, fontWeight: '700', marginBottom: 24, color: '#f8fafc'},
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#444',
+    color: '#cbd5e1',
     marginTop: 20,
     marginBottom: 8,
   },
-  label: {fontSize: 14, color: '#555', marginTop: 16, marginBottom: 6},
+  label: {fontSize: 14, color: '#94a3b8', marginTop: 16, marginBottom: 6},
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: '#0f172a',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#334155',
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: '#222',
+    color: '#f8fafc',
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: '#0f172a',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
     marginBottom: 8,
   },
-  rowLabel: {fontSize: 15, color: '#333'},
+  rowLabel: {fontSize: 15, color: '#e2e8f0'},
   radioGroup: {flexDirection: 'row', gap: 8, marginTop: 4},
   radioOption: {
     flex: 1,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#334155',
     alignItems: 'center',
-    backgroundColor: '#fff',
+    backgroundColor: '#0f172a',
   },
-  radioOptionSelected: {borderColor: '#4a90e2', backgroundColor: '#eaf2ff'},
-  radioText: {fontSize: 13, color: '#666'},
-  radioTextSelected: {color: '#4a90e2', fontWeight: '600'},
+  radioOptionSelected: {borderColor: '#818cf8', backgroundColor: '#312e81'},
+  radioText: {fontSize: 13, color: '#cbd5e1'},
+  radioTextSelected: {color: '#e0e7ff', fontWeight: '600'},
   button: {
     marginTop: 32,
-    backgroundColor: '#4a90e2',
+    backgroundColor: '#4f46e5',
     borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
   },
-  buttonText: {color: '#fff', fontSize: 16, fontWeight: '700'},
+  buttonText: {color: '#f8fafc', fontSize: 16, fontWeight: '700'},
 });
 
 export default ConfigScreen;
