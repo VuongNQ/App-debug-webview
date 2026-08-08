@@ -1,6 +1,6 @@
-import type {WebViewConfig} from './screens/ConfigScreen';
+import type { WebViewConfig } from './config/webViewConfig';
 
 export type RootStackParamList = {
   Config: undefined;
-  Preview: {config: WebViewConfig};
+  Preview: { config: WebViewConfig };
 };
