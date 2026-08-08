@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'preview_screen.dart';
 
@@ -253,6 +255,55 @@ class _ConfigScreenState extends State<ConfigScreen> {
     );
   }
 
+  Future<void> _scanQrAndFillUrl() async {
+    final scannedUrl = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const _QrScannerScreen()),
+    );
+    if (!mounted || scannedUrl == null || scannedUrl.isEmpty) {
+      return;
+    }
+
+    final value = scannedUrl.trim();
+    if (!value.startsWith('http://') && !value.startsWith('https://')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('QR content must start with http:// or https://'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _urlController.text = value;
+    });
+  }
+
+  Future<void> _pasteUrlFromClipboard() async {
+    final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted) return;
+
+    final value = clipboardData?.text?.trim() ?? '';
+    if (value.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Clipboard is empty')),
+      );
+      return;
+    }
+
+    if (!value.startsWith('http://') && !value.startsWith('https://')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Clipboard text must start with http:// or https://'),
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _urlController.text = value;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading) {
@@ -409,7 +460,33 @@ class _ConfigScreenState extends State<ConfigScreen> {
       Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionLabel('URL'),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const _SectionLabel('URL'),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Wrap(
+                    spacing: 2,
+                    runSpacing: 2,
+                    children: [
+                      TextButton.icon(
+                        onPressed: _pasteUrlFromClipboard,
+                        icon: const Icon(Icons.content_paste, size: 18),
+                        label: const Text('Paste URL'),
+                      ),
+                      TextButton.icon(
+                        onPressed: _scanQrAndFillUrl,
+                        icon: const Icon(Icons.qr_code_scanner, size: 18),
+                        label: const Text('Scan QR'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 6),
           TextField(
             controller: _urlController,
@@ -498,22 +575,25 @@ class _ConfigScreenState extends State<ConfigScreen> {
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: const Color(0xFFEEEEEE)),
             ),
-            child: ExpansionTile(
-              initiallyExpanded: _showAdvancedSettings,
-              onExpansionChanged: (expanded) {
-                setState(() {
-                  _showAdvancedSettings = expanded;
-                });
-              },
-              title: const Text(
-                'Advanced InAppWebView Settings',
-                style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF444444)),
-              ),
-              childrenPadding: const EdgeInsets.fromLTRB(10, 4, 10, 14),
-              children: [
+            child: Material(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(8),
+              child: ExpansionTile(
+                initiallyExpanded: _showAdvancedSettings,
+                onExpansionChanged: (expanded) {
+                  setState(() {
+                    _showAdvancedSettings = expanded;
+                  });
+                },
+                title: const Text(
+                  'Advanced InAppWebView Settings',
+                  style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF444444)),
+                ),
+                childrenPadding: const EdgeInsets.fromLTRB(10, 4, 10, 14),
+                children: [
                 _SettingRow(
                   label: 'Support Zoom',
                   value: _config.supportZoom,
@@ -632,7 +712,8 @@ class _ConfigScreenState extends State<ConfigScreen> {
                   ),
                   autocorrect: false,
                 ),
-              ],
+                ],
+              ),
             ),
           ),
         ],
@@ -677,6 +758,64 @@ class _SettingRow extends StatelessWidget {
             onChanged: onChanged,
             activeThumbColor: const Color(0xFF4A90E2),
           ),
+        ),
+      );
+}
+
+class _QrScannerScreen extends StatefulWidget {
+  const _QrScannerScreen();
+
+  @override
+  State<_QrScannerScreen> createState() => _QrScannerScreenState();
+}
+
+class _QrScannerScreenState extends State<_QrScannerScreen> {
+  final MobileScannerController _controller = MobileScannerController();
+  bool _hasResult = false;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onDetect(BarcodeCapture capture) {
+    if (_hasResult) return;
+    final value = capture.barcodes.firstOrNull?.rawValue?.trim();
+    if (value == null || value.isEmpty) return;
+
+    _hasResult = true;
+    Navigator.of(context).pop(value);
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(
+          title: const Text('Scan QR URL'),
+          backgroundColor: const Color(0xFF1A1A2E),
+          foregroundColor: Colors.white,
+        ),
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            MobileScanner(
+              controller: _controller,
+              onDetect: _onDetect,
+            ),
+            Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                width: double.infinity,
+                color: Colors.black.withValues(alpha: 0.55),
+                padding: const EdgeInsets.all(16),
+                child: const Text(
+                  'Scan a QR code from your PC screen to autofill URL',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white, fontSize: 14),
+                ),
+              ),
+            ),
+          ],
         ),
       );
 }
