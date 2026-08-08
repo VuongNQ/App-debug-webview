@@ -594,124 +594,124 @@ class _ConfigScreenState extends State<ConfigScreen> {
                 ),
                 childrenPadding: const EdgeInsets.fromLTRB(10, 4, 10, 14),
                 children: [
-                _SettingRow(
-                  label: 'Support Zoom',
-                  value: _config.supportZoom,
-                  onChanged: (v) => setState(() => _config = _config.copyWith(
-                        supportZoom: v,
-                        enableViewportScale: v,
-                        ignoresViewportScaleLimits: v,
-                      )),
-                ),
-                _SettingRow(
-                  label: 'Display Zoom Controls',
-                  value: _config.displayZoomControls,
-                  onChanged: (v) => setState(
-                      () => _config = _config.copyWith(displayZoomControls: v)),
-                ),
-                _SettingRow(
-                  label: 'Use Wide ViewPort',
-                  value: _config.useWideViewPort,
-                  onChanged: (v) => setState(
-                      () => _config = _config.copyWith(useWideViewPort: v)),
-                ),
-                _SettingRow(
-                  label: 'Load With Overview Mode',
-                  value: _config.loadWithOverviewMode,
-                  onChanged: (v) => setState(() =>
-                      _config = _config.copyWith(loadWithOverviewMode: v)),
-                ),
-                _SettingRow(
-                  label: 'Use On Load Resource',
-                  value: _config.useOnLoadResource,
-                  onChanged: (v) => setState(
-                      () => _config = _config.copyWith(useOnLoadResource: v)),
-                ),
-                _SettingRow(
-                  label: 'Geolocation Enabled',
-                  value: _config.geolocationEnabled,
-                  onChanged: (v) => setState(
-                      () => _config = _config.copyWith(geolocationEnabled: v)),
-                ),
-                _SettingRow(
-                  label: 'JavaScript Can Open Windows',
-                  value: _config.javaScriptCanOpenWindowsAutomatically,
-                  onChanged: (v) => setState(() => _config = _config.copyWith(
-                      javaScriptCanOpenWindowsAutomatically: v)),
-                ),
-                _SettingRow(
-                  label: 'Allow Universal Access From File URLs',
-                  value: _config.allowUniversalAccessFromFileURLs,
-                  onChanged: (v) => setState(() => _config =
-                      _config.copyWith(allowUniversalAccessFromFileURLs: v)),
-                ),
-                _SettingRow(
-                  label: 'Allow File Access From File URLs',
-                  value: _config.allowFileAccessFromFileURLs,
-                  onChanged: (v) => setState(() => _config =
-                      _config.copyWith(allowFileAccessFromFileURLs: v)),
-                ),
-                _SettingRow(
-                  label: 'Media Playback Requires User Gesture',
-                  value: _config.mediaPlaybackRequiresUserGesture,
-                  onChanged: (v) => setState(() => _config =
-                      _config.copyWith(mediaPlaybackRequiresUserGesture: v)),
-                ),
-                _SettingRow(
-                  label: 'Allows Inline Media Playback',
-                  value: _config.allowsInlineMediaPlayback,
-                  onChanged: (v) => setState(() =>
-                      _config = _config.copyWith(allowsInlineMediaPlayback: v)),
-                ),
-                _SettingRow(
-                  label: 'Transparent Background',
-                  value: _config.transparentBackground,
-                  onChanged: (v) => setState(() =>
-                      _config = _config.copyWith(transparentBackground: v)),
-                ),
-                const SizedBox(height: 12),
-                const _SectionLabel('Iframe Allow Permissions'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _iframeAllowController,
-                  decoration: const InputDecoration(
-                    hintText: 'camera; microphone; geolocation; fullscreen',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                      borderSide: BorderSide(color: Color(0xFFDDDDDD)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                      borderSide: BorderSide(color: Color(0xFFDDDDDD)),
-                    ),
+                  _SettingRow(
+                    label: 'Support Zoom',
+                    value: _config.supportZoom,
+                    onChanged: (v) => setState(() => _config = _config.copyWith(
+                          supportZoom: v,
+                          enableViewportScale: v,
+                          ignoresViewportScaleLimits: v,
+                        )),
                   ),
-                  minLines: 2,
-                  maxLines: 4,
-                  autocorrect: false,
-                ),
-                const SizedBox(height: 12),
-                const _SectionLabel(
-                    'Application Name For User Agent (optional)'),
-                const SizedBox(height: 6),
-                TextField(
-                  controller: _applicationNameForUserAgentController,
-                  decoration: const InputDecoration(
-                    hintText: 'ExampleApp/1.0.0',
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                      borderSide: BorderSide(color: Color(0xFFDDDDDD)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.all(Radius.circular(8)),
-                      borderSide: BorderSide(color: Color(0xFFDDDDDD)),
-                    ),
+                  _SettingRow(
+                    label: 'Display Zoom Controls',
+                    value: _config.displayZoomControls,
+                    onChanged: (v) => setState(() =>
+                        _config = _config.copyWith(displayZoomControls: v)),
                   ),
-                  autocorrect: false,
-                ),
+                  _SettingRow(
+                    label: 'Use Wide ViewPort',
+                    value: _config.useWideViewPort,
+                    onChanged: (v) => setState(
+                        () => _config = _config.copyWith(useWideViewPort: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Load With Overview Mode',
+                    value: _config.loadWithOverviewMode,
+                    onChanged: (v) => setState(() =>
+                        _config = _config.copyWith(loadWithOverviewMode: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Use On Load Resource',
+                    value: _config.useOnLoadResource,
+                    onChanged: (v) => setState(
+                        () => _config = _config.copyWith(useOnLoadResource: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Geolocation Enabled',
+                    value: _config.geolocationEnabled,
+                    onChanged: (v) => setState(() =>
+                        _config = _config.copyWith(geolocationEnabled: v)),
+                  ),
+                  _SettingRow(
+                    label: 'JavaScript Can Open Windows',
+                    value: _config.javaScriptCanOpenWindowsAutomatically,
+                    onChanged: (v) => setState(() => _config = _config.copyWith(
+                        javaScriptCanOpenWindowsAutomatically: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Allow Universal Access From File URLs',
+                    value: _config.allowUniversalAccessFromFileURLs,
+                    onChanged: (v) => setState(() => _config =
+                        _config.copyWith(allowUniversalAccessFromFileURLs: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Allow File Access From File URLs',
+                    value: _config.allowFileAccessFromFileURLs,
+                    onChanged: (v) => setState(() => _config =
+                        _config.copyWith(allowFileAccessFromFileURLs: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Media Playback Requires User Gesture',
+                    value: _config.mediaPlaybackRequiresUserGesture,
+                    onChanged: (v) => setState(() => _config =
+                        _config.copyWith(mediaPlaybackRequiresUserGesture: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Allows Inline Media Playback',
+                    value: _config.allowsInlineMediaPlayback,
+                    onChanged: (v) => setState(() => _config =
+                        _config.copyWith(allowsInlineMediaPlayback: v)),
+                  ),
+                  _SettingRow(
+                    label: 'Transparent Background',
+                    value: _config.transparentBackground,
+                    onChanged: (v) => setState(() =>
+                        _config = _config.copyWith(transparentBackground: v)),
+                  ),
+                  const SizedBox(height: 12),
+                  const _SectionLabel('Iframe Allow Permissions'),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _iframeAllowController,
+                    decoration: const InputDecoration(
+                      hintText: 'camera; microphone; geolocation; fullscreen',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderSide: BorderSide(color: Color(0xFFDDDDDD)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderSide: BorderSide(color: Color(0xFFDDDDDD)),
+                      ),
+                    ),
+                    minLines: 2,
+                    maxLines: 4,
+                    autocorrect: false,
+                  ),
+                  const SizedBox(height: 12),
+                  const _SectionLabel(
+                      'Application Name For User Agent (optional)'),
+                  const SizedBox(height: 6),
+                  TextField(
+                    controller: _applicationNameForUserAgentController,
+                    decoration: const InputDecoration(
+                      hintText: 'ExampleApp/1.0.0',
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderSide: BorderSide(color: Color(0xFFDDDDDD)),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(8)),
+                        borderSide: BorderSide(color: Color(0xFFDDDDDD)),
+                      ),
+                    ),
+                    autocorrect: false,
+                  ),
                 ],
               ),
             ),
