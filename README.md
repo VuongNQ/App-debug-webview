@@ -193,6 +193,8 @@ flutter run -d <device-id>
 
 ### Build the Flutter app
 
+Release builds are also triggered automatically for Git tags that include `flutter-release` (for example `v1.2.3-flutter-release`). The CI workflow builds the Flutter app, runs analysis and tests, and uploads release APK and App Bundle artifacts.
+
 Run build commands from `apps/webview-debug-flutter`:
 
 ```bash

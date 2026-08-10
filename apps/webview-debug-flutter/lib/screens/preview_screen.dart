@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' show min;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../models/network_entry.dart';
 import 'config_screen.dart';
+import 'network_panel.dart';
 
 class PreviewScreen extends StatefulWidget {
   final WebViewConfig config;
@@ -24,10 +27,17 @@ class _PreviewScreenState extends State<PreviewScreen> {
   String _currentUrl = '';
   Timer? _loadTimeout;
   double _lastScrollY = 0;
+  late final ValueNotifier<List<NetworkEntry>> _networkLogNotifier;
+  int _nextEntryId = 0;
 
   @override
   void initState() {
     super.initState();
+    _networkLogNotifier = ValueNotifier([]);
+    // rebuild badge count whenever the log changes
+    _networkLogNotifier.addListener(() {
+      if (mounted) setState(() {});
+    });
     _currentUrl = widget.config.url;
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
@@ -35,6 +45,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
   @override
   void dispose() {
     _loadTimeout?.cancel();
+    _networkLogNotifier.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
   }
@@ -85,6 +96,22 @@ class _PreviewScreenState extends State<PreviewScreen> {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  Map<String, String> _toStringMap(Map<String, dynamic>? map) =>
+      map?.map((k, v) => MapEntry(k, v.toString())) ?? {};
+
+  void _openNetworkPanel() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => NetworkPanel(
+        logNotifier: _networkLogNotifier,
+        onClear: () => _networkLogNotifier.value = [],
+      ),
+    );
   }
 
   void _handleWebScroll(int y) {
@@ -149,6 +176,8 @@ class _PreviewScreenState extends State<PreviewScreen> {
               mixedContentMode: widget.config.allowMixedContent
                   ? MixedContentMode.MIXED_CONTENT_ALWAYS_ALLOW
                   : MixedContentMode.MIXED_CONTENT_NEVER_ALLOW,
+              useShouldInterceptAjaxRequest: true,
+              useShouldInterceptFetchRequest: true,
             ),
             onWebViewCreated: (controller) {
               _controller = controller;
@@ -240,6 +269,79 @@ class _PreviewScreenState extends State<PreviewScreen> {
             onScrollChanged: (controller, x, y) {
               _handleWebScroll(y);
             },
+            shouldInterceptAjaxRequest: (controller, ajaxRequest) async {
+              if (!mounted) return ajaxRequest;
+              final entry = NetworkEntry(
+                id: _nextEntryId++,
+                url: ajaxRequest.url?.toString() ?? '',
+                method: ajaxRequest.method ?? 'GET',
+                requestHeaders: _toStringMap(ajaxRequest.headers?.getHeaders()),
+                requestBody: ajaxRequest.data?.toString(),
+                startTime: DateTime.now(),
+                type: NetworkEntryType.xhr,
+              );
+              _networkLogNotifier.value = [..._networkLogNotifier.value, entry];
+              return ajaxRequest;
+            },
+            onAjaxReadyStateChange: (controller, ajaxRequest) async {
+              if (!mounted) return AjaxRequestAction.PROCEED;
+              if (ajaxRequest.readyState != AjaxRequestReadyState.DONE) {
+                return AjaxRequestAction.PROCEED;
+              }
+              final url = ajaxRequest.url?.toString() ?? '';
+              final entries = _networkLogNotifier.value;
+              final idx = entries.lastIndexWhere(
+                (e) =>
+                    e.url == url &&
+                    e.type == NetworkEntryType.xhr &&
+                    e.statusCode == null,
+              );
+              if (idx != -1) {
+                final preview = ajaxRequest.responseText;
+                final updated = entries[idx].copyWith(
+                  statusCode: ajaxRequest.status,
+                  endTime: DateTime.now(),
+                  responseBodyPreview: preview?.substring(
+                    0,
+                    min(500, preview.length),
+                  ),
+                );
+                final next = List<NetworkEntry>.from(entries);
+                next[idx] = updated;
+                _networkLogNotifier.value = next;
+              }
+              return AjaxRequestAction.PROCEED;
+            },
+            // Android-only; iOS Fetch calls are not intercepted by flutter_inappwebview
+            shouldInterceptFetchRequest: (controller, fetchRequest) async {
+              if (!mounted) return fetchRequest;
+              final entry = NetworkEntry(
+                id: _nextEntryId++,
+                url: fetchRequest.url?.toString() ?? '',
+                method: fetchRequest.method ?? 'GET',
+                requestHeaders: _toStringMap(fetchRequest.headers),
+                requestBody: fetchRequest.body?.toString(),
+                startTime: DateTime.now(),
+                type: NetworkEntryType.fetch,
+              );
+              _networkLogNotifier.value = [..._networkLogNotifier.value, entry];
+              return fetchRequest;
+            },
+            onLoadResource: (controller, resource) {
+              if (!mounted) return;
+              final now = DateTime.now();
+              final durationMs = resource.duration?.toInt() ?? 0;
+              final entry = NetworkEntry(
+                id: _nextEntryId++,
+                url: resource.url?.toString() ?? '',
+                method: 'GET',
+                requestHeaders: const {},
+                startTime: now.subtract(Duration(milliseconds: durationMs)),
+                endTime: now,
+                type: NetworkEntryType.resource,
+              );
+              _networkLogNotifier.value = [..._networkLogNotifier.value, entry];
+            },
           ),
           Positioned(
             right: 16,
@@ -282,6 +384,20 @@ class _PreviewScreenState extends State<PreviewScreen> {
                         backgroundColor: const Color(0xCC1A1A2E),
                         onPressed: () => _controller?.reload(),
                         child: const Icon(Icons.refresh, color: Colors.white),
+                      ),
+                      const SizedBox(height: 10),
+                      Badge(
+                        isLabelVisible: _networkLogNotifier.value.isNotEmpty,
+                        label: Text('${_networkLogNotifier.value.length}'),
+                        child: FloatingActionButton.small(
+                          heroTag: 'webview-network-action',
+                          backgroundColor: const Color(0xCC1A1A2E),
+                          onPressed: _openNetworkPanel,
+                          child: const Icon(
+                            Icons.network_check,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
                     ],
                   ),
