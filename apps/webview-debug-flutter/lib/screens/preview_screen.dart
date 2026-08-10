@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'config_screen.dart';
@@ -18,20 +19,44 @@ class _PreviewScreenState extends State<PreviewScreen> {
   bool _loading = true;
   bool _canGoBack = false;
   bool _canGoForward = false;
+  bool _showFloatingActions = true;
   bool _loadFailed = false;
   String _currentUrl = '';
   Timer? _loadTimeout;
+  double _lastScrollY = 0;
 
   @override
   void initState() {
     super.initState();
     _currentUrl = widget.config.url;
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
   }
 
   @override
   void dispose() {
     _loadTimeout?.cancel();
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     super.dispose();
+  }
+
+  Future<void> _handleBackAction() async {
+    final controller = _controller;
+    if (controller == null) {
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
+      return;
+    }
+
+    final canBack = await controller.canGoBack();
+    if (canBack) {
+      await controller.goBack();
+      return;
+    }
+
+    if (mounted && Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
   }
 
   void _startLoadTimeout() {
@@ -62,67 +87,62 @@ class _PreviewScreenState extends State<PreviewScreen> {
     }
   }
 
+  void _handleWebScroll(int y) {
+    final currentY = y.toDouble();
+    const delta = 10.0;
+    final scrolledDown = currentY - _lastScrollY > delta;
+    final scrolledUp = _lastScrollY - currentY > delta;
+
+    if (scrolledDown && _showFloatingActions) {
+      setState(() {
+        _showFloatingActions = false;
+      });
+    } else if ((scrolledUp || currentY <= 0) && !_showFloatingActions) {
+      setState(() {
+        _showFloatingActions = true;
+      });
+    }
+
+    _lastScrollY = currentY;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
-        leading: IconButton(
-          icon: const Icon(Icons.settings, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-          tooltip: 'Back to Config',
-        ),
-        title: Text(
-          _currentUrl,
-          style: const TextStyle(fontSize: 13, color: Color(0xFFCCCCCC)),
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          IconButton(
-            icon: Icon(Icons.arrow_back_ios,
-                color: _canGoBack ? Colors.white : Colors.white38),
-            onPressed: _canGoBack ? () => _controller?.goBack() : null,
-          ),
-          IconButton(
-            icon: Icon(Icons.arrow_forward_ios,
-                color: _canGoForward ? Colors.white : Colors.white38),
-            onPressed: _canGoForward ? () => _controller?.goForward() : null,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: () => _controller?.reload(),
-          ),
-        ],
-        elevation: 0,
-      ),
       body: Stack(
         children: [
           InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri(widget.config.url)),
             initialSettings: InAppWebViewSettings(
-              supportZoom: true,
-              builtInZoomControls: true,
-              enableViewportScale: true,
-              ignoresViewportScaleLimits: true,
-              displayZoomControls: false,
-              useWideViewPort: true,
-              loadWithOverviewMode: true,
+              supportZoom: widget.config.supportZoom,
+              builtInZoomControls: widget.config.supportZoom,
+              enableViewportScale: widget.config.enableViewportScale,
+              ignoresViewportScaleLimits:
+                  widget.config.ignoresViewportScaleLimits,
+              displayZoomControls: widget.config.displayZoomControls,
+              useWideViewPort: widget.config.useWideViewPort,
+              loadWithOverviewMode: widget.config.loadWithOverviewMode,
               isInspectable:
                   widget.config.debuggingEnabled && Platform.isAndroid,
               javaScriptEnabled: widget.config.javaScriptEnabled,
               domStorageEnabled: widget.config.domStorageEnabled,
-              useOnLoadResource: true,
-              geolocationEnabled: true,
-              javaScriptCanOpenWindowsAutomatically: true,
-              allowUniversalAccessFromFileURLs: true,
-              allowFileAccessFromFileURLs: true,
-              mediaPlaybackRequiresUserGesture: false,
-              allowsInlineMediaPlayback: true,
-              iframeAllow:
-                  'camera; microphone; clipboard-write; geolocation; web-share; fullscreen',
-              applicationNameForUserAgent: '',
-              transparentBackground: false,
+              useOnLoadResource: widget.config.useOnLoadResource,
+              geolocationEnabled: widget.config.geolocationEnabled,
+              javaScriptCanOpenWindowsAutomatically:
+                  widget.config.javaScriptCanOpenWindowsAutomatically,
+              allowUniversalAccessFromFileURLs:
+                  widget.config.allowUniversalAccessFromFileURLs,
+              allowFileAccessFromFileURLs:
+                  widget.config.allowFileAccessFromFileURLs,
+              mediaPlaybackRequiresUserGesture:
+                  widget.config.mediaPlaybackRequiresUserGesture,
+              allowsInlineMediaPlayback:
+                  widget.config.allowsInlineMediaPlayback,
+              iframeAllow: widget.config.iframeAllow,
+              applicationNameForUserAgent:
+                  widget.config.applicationNameForUserAgent,
+              transparentBackground: widget.config.transparentBackground,
               userAgent: widget.config.userAgent.isEmpty
                   ? null
                   : widget.config.userAgent,
@@ -217,6 +237,57 @@ class _PreviewScreenState extends State<PreviewScreen> {
                 );
               }
             },
+            onScrollChanged: (controller, x, y) {
+              _handleWebScroll(y);
+            },
+          ),
+          Positioned(
+            right: 16,
+            bottom: MediaQuery.of(context).padding.bottom + 16,
+            child: AnimatedSlide(
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+              offset: _showFloatingActions ? Offset.zero : const Offset(0, 1),
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 220),
+                opacity: _showFloatingActions ? 1 : 0,
+                child: IgnorePointer(
+                  ignoring: !_showFloatingActions,
+                  child: Column(
+                    children: [
+                      FloatingActionButton.small(
+                        heroTag: 'webview-back-action',
+                        backgroundColor: const Color(0xCC1A1A2E),
+                        onPressed: _handleBackAction,
+                        child: Icon(
+                          Icons.arrow_back,
+                          color: _canGoBack ? Colors.white : Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      FloatingActionButton.small(
+                        heroTag: 'webview-forward-action',
+                        backgroundColor: const Color(0xCC1A1A2E),
+                        onPressed: _canGoForward
+                            ? () => _controller?.goForward()
+                            : null,
+                        child: Icon(
+                          Icons.arrow_forward,
+                          color: _canGoForward ? Colors.white : Colors.white70,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      FloatingActionButton.small(
+                        heroTag: 'webview-reload-action',
+                        backgroundColor: const Color(0xCC1A1A2E),
+                        onPressed: () => _controller?.reload(),
+                        child: const Icon(Icons.refresh, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
           if (_loading) const Center(child: CircularProgressIndicator()),
           if (_loadFailed)
@@ -249,22 +320,6 @@ class _PreviewScreenState extends State<PreviewScreen> {
                       ],
                     ),
                   ),
-                ),
-              ),
-            ),
-          if (widget.config.debuggingEnabled && Platform.isAndroid)
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                color: const Color(0xFF1A1A2E),
-                padding:
-                    const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
-                child: const Text(
-                  '🔍 Remote debugging: chrome://inspect',
-                  style: TextStyle(color: Color(0xFFAAFFDD), fontSize: 12),
-                  textAlign: TextAlign.center,
                 ),
               ),
             ),
