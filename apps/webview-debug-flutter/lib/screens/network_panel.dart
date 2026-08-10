@@ -1,7 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../models/network_entry.dart';
 
-class NetworkPanel extends StatelessWidget {
+enum NetworkFilter { all, xhrFetch, doc, css, js, image, socket }
+
+class NetworkPanel extends StatefulWidget {
   final ValueNotifier<List<NetworkEntry>> logNotifier;
   final VoidCallback onClear;
 
@@ -11,7 +15,44 @@ class NetworkPanel extends StatelessWidget {
     required this.onClear,
   });
 
-  static Color _methodColor(String method) {
+  @override
+  State<NetworkPanel> createState() => _NetworkPanelState();
+}
+
+class _NetworkPanelState extends State<NetworkPanel> {
+  NetworkFilter _activeFilter = NetworkFilter.all;
+
+  static const _filterLabels = {
+    NetworkFilter.all: 'All',
+    NetworkFilter.xhrFetch: 'XHR/Fetch',
+    NetworkFilter.doc: 'Doc',
+    NetworkFilter.css: 'CSS',
+    NetworkFilter.js: 'JS',
+    NetworkFilter.image: 'Image',
+    NetworkFilter.socket: 'Socket',
+  };
+
+  static bool _matchesFilter(NetworkEntry e, NetworkFilter f) {
+    switch (f) {
+      case NetworkFilter.all:
+        return true;
+      case NetworkFilter.xhrFetch:
+        return e.type == NetworkEntryType.xhr ||
+            e.type == NetworkEntryType.fetch;
+      case NetworkFilter.doc:
+        return e.type == NetworkEntryType.document;
+      case NetworkFilter.css:
+        return e.type == NetworkEntryType.stylesheet;
+      case NetworkFilter.js:
+        return e.type == NetworkEntryType.script;
+      case NetworkFilter.image:
+        return e.type == NetworkEntryType.image;
+      case NetworkFilter.socket:
+        return e.type == NetworkEntryType.socket;
+    }
+  }
+
+  static Color methodColor(String method) {
     switch (method.toUpperCase()) {
       case 'GET':
         return Colors.blue.shade700;
@@ -28,7 +69,7 @@ class NetworkPanel extends StatelessWidget {
     }
   }
 
-  static Color _statusColor(int? status) {
+  static Color statusColor(int? status) {
     if (status == null) return Colors.grey;
     if (status < 300) return Colors.green.shade700;
     if (status < 400) return Colors.amber.shade700;
@@ -36,20 +77,32 @@ class NetworkPanel extends StatelessWidget {
     return Colors.deepOrange.shade700;
   }
 
-  static String _durationLabel(Duration? d) {
+  static String durationLabel(Duration? d) {
     if (d == null) return '—';
     final ms = d.inMilliseconds;
     return ms < 1000 ? '${ms}ms' : '${(ms / 1000).toStringAsFixed(1)}s';
   }
 
-  static String _typeLabel(NetworkEntryType type) {
+  static String typeLabel(NetworkEntryType type) {
     switch (type) {
       case NetworkEntryType.xhr:
         return 'XHR';
       case NetworkEntryType.fetch:
         return 'FETCH';
-      case NetworkEntryType.resource:
-        return 'RES';
+      case NetworkEntryType.document:
+        return 'DOC';
+      case NetworkEntryType.stylesheet:
+        return 'CSS';
+      case NetworkEntryType.script:
+        return 'JS';
+      case NetworkEntryType.image:
+        return 'IMG';
+      case NetworkEntryType.media:
+        return 'MEDIA';
+      case NetworkEntryType.socket:
+        return 'WS';
+      case NetworkEntryType.other:
+        return 'OTHER';
     }
   }
 
@@ -63,61 +116,7 @@ class NetworkPanel extends StatelessWidget {
   void _showDetail(BuildContext context, NetworkEntry entry) {
     showDialog<void>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Row(
-          children: [
-            _MethodBadge(entry.method),
-            const SizedBox(width: 8),
-            Text(
-              _typeLabel(entry.type),
-              style: const TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _DetailSection('URL', entry.url),
-              _DetailSection(
-                'Status',
-                entry.statusCode?.toString() ?? '— (pending)',
-              ),
-              _DetailSection('Duration', _durationLabel(entry.duration)),
-              if (entry.contentLength != null)
-                _DetailSection('Transfer Size', '${entry.contentLength} B'),
-              if (entry.requestHeaders.isNotEmpty)
-                _DetailSection(
-                  'Request Headers',
-                  entry.requestHeaders.entries
-                      .map((e) => '${e.key}: ${e.value}')
-                      .join('\n'),
-                ),
-              if (entry.requestBody != null && entry.requestBody!.isNotEmpty)
-                _DetailSection('Request Body', entry.requestBody!),
-              if (entry.responseHeaders.isNotEmpty)
-                _DetailSection(
-                  'Response Headers',
-                  entry.responseHeaders.entries
-                      .map((e) => '${e.key}: ${e.value}')
-                      .join('\n'),
-                ),
-              if (entry.responseBodyPreview != null)
-                _DetailSection(
-                  'Response Preview',
-                  entry.responseBodyPreview!,
-                ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Close'),
-          ),
-        ],
-      ),
+      builder: (ctx) => _DetailDialog(entry: entry),
     );
   }
 
@@ -146,59 +145,100 @@ class NetworkPanel extends StatelessWidget {
                 ),
               ),
               ValueListenableBuilder<List<NetworkEntry>>(
-                valueListenable: logNotifier,
-                builder: (context, entries, _) => Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 4,
-                  ),
-                  child: Row(
+                valueListenable: widget.logNotifier,
+                builder: (context, entries, _) {
+                  final filtered = entries
+                      .where((e) => _matchesFilter(e, _activeFilter))
+                      .toList();
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.network_check, size: 18),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Network',
-                        style: Theme.of(context).textTheme.titleMedium,
-                      ),
-                      const SizedBox(width: 6),
-                      if (entries.isNotEmpty)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primary,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${entries.length}',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Theme.of(context).colorScheme.onPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 4,
                         ),
-                      const Spacer(),
-                      TextButton.icon(
-                        onPressed: entries.isEmpty ? null : onClear,
-                        icon: const Icon(Icons.delete_sweep, size: 16),
-                        label: const Text('Clear'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: Colors.red.shade700,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.network_check, size: 18),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Network',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(width: 6),
+                            if (filtered.isNotEmpty)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.primary,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '${filtered.length}',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onPrimary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            const Spacer(),
+                            TextButton.icon(
+                              onPressed:
+                                  entries.isEmpty ? null : widget.onClear,
+                              icon: const Icon(Icons.delete_sweep, size: 16),
+                              label: const Text('Clear'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red.shade700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: 36,
+                        child: ListView(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          children: NetworkFilter.values.map((f) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 6),
+                              child: ChoiceChip(
+                                label: Text(_filterLabels[f]!),
+                                selected: _activeFilter == f,
+                                onSelected: (_) =>
+                                    setState(() => _activeFilter = f),
+                                labelStyle: const TextStyle(fontSize: 12),
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
                       ),
                     ],
-                  ),
-                ),
+                  );
+                },
               ),
               const Divider(height: 1),
               Expanded(
                 child: ValueListenableBuilder<List<NetworkEntry>>(
-                  valueListenable: logNotifier,
+                  valueListenable: widget.logNotifier,
                   builder: (context, entries, _) {
-                    if (entries.isEmpty) {
+                    final filtered = entries
+                        .where((e) => _matchesFilter(e, _activeFilter))
+                        .toList();
+                    if (filtered.isEmpty) {
                       return const Center(
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
@@ -210,7 +250,7 @@ class NetworkPanel extends StatelessWidget {
                             ),
                             SizedBox(height: 12),
                             Text(
-                              'No network requests captured yet.',
+                              'No requests captured for this filter.',
                               style: TextStyle(color: Colors.grey),
                             ),
                           ],
@@ -219,11 +259,11 @@ class NetworkPanel extends StatelessWidget {
                     }
                     return ListView.separated(
                       controller: scrollController,
-                      itemCount: entries.length,
+                      itemCount: filtered.length,
                       separatorBuilder: (_, __) =>
                           const Divider(height: 1, indent: 16),
                       itemBuilder: (context, index) {
-                        final entry = entries[index];
+                        final entry = filtered[index];
                         return ListTile(
                           dense: true,
                           leading: _MethodBadge(entry.method),
@@ -234,7 +274,7 @@ class NetworkPanel extends StatelessWidget {
                             style: const TextStyle(fontSize: 13),
                           ),
                           subtitle: Text(
-                            _typeLabel(entry.type),
+                            typeLabel(entry.type),
                             style: const TextStyle(fontSize: 11),
                           ),
                           trailing: Column(
@@ -248,26 +288,26 @@ class NetworkPanel extends StatelessWidget {
                                     vertical: 1,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: _statusColor(
+                                    color: statusColor(
                                       entry.statusCode,
                                     ).withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(4),
                                     border: Border.all(
-                                      color: _statusColor(entry.statusCode),
+                                      color: statusColor(entry.statusCode),
                                     ),
                                   ),
                                   child: Text(
                                     '${entry.statusCode}',
                                     style: TextStyle(
                                       fontSize: 11,
-                                      color: _statusColor(entry.statusCode),
+                                      color: statusColor(entry.statusCode),
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
                               const SizedBox(height: 2),
                               Text(
-                                _durationLabel(entry.duration),
+                                durationLabel(entry.duration),
                                 style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey,
@@ -299,7 +339,7 @@ class _MethodBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
-        color: NetworkPanel._methodColor(method),
+        color: _NetworkPanelState.methodColor(method),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
@@ -311,6 +351,189 @@ class _MethodBadge extends StatelessWidget {
           letterSpacing: 0.5,
         ),
       ),
+    );
+  }
+}
+
+enum _ResponseView { raw, preview }
+
+class _DetailDialog extends StatefulWidget {
+  final NetworkEntry entry;
+  const _DetailDialog({required this.entry});
+
+  @override
+  State<_DetailDialog> createState() => _DetailDialogState();
+}
+
+class _DetailDialogState extends State<_DetailDialog> {
+  _ResponseView _responseView = _ResponseView.preview;
+
+  bool get _isXhrOrFetch =>
+      widget.entry.type == NetworkEntryType.xhr ||
+      widget.entry.type == NetworkEntryType.fetch;
+
+  static String _prettyJson(String raw) {
+    try {
+      final decoded = jsonDecode(raw);
+      return const JsonEncoder.withIndent('  ').convert(decoded);
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  static String _buildCurl(NetworkEntry e) {
+    final buf = StringBuffer('curl');
+    if (e.method.toUpperCase() != 'GET') {
+      buf.write(' -X ${e.method.toUpperCase()}');
+    }
+    buf.write(" '${e.url}'");
+    for (final h in e.requestHeaders.entries) {
+      buf.write(" \\\n  -H '${h.key}: ${h.value}'");
+    }
+    if (e.requestBody != null && e.requestBody!.isNotEmpty) {
+      final body = e.requestBody!.replaceAll("'", r"'\''");
+      buf.write(" \\\n  -d '$body'");
+    }
+    return buf.toString();
+  }
+
+  Future<void> _copy(BuildContext ctx, String text, String label) async {
+    await Clipboard.setData(ClipboardData(text: text));
+    if (!ctx.mounted) return;
+    ScaffoldMessenger.of(ctx).showSnackBar(
+      SnackBar(
+        content: Text('$label copied to clipboard'),
+        duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final entry = widget.entry;
+    final hasResponse = entry.responseBodyPreview != null;
+    final responseContent = hasResponse
+        ? (_responseView == _ResponseView.preview
+            ? _prettyJson(entry.responseBodyPreview!)
+            : entry.responseBodyPreview!)
+        : null;
+
+    return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+      titlePadding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+      title: Row(
+        children: [
+          _MethodBadge(entry.method),
+          const SizedBox(width: 8),
+          Text(
+            _NetworkPanelState.typeLabel(entry.type),
+            style: const TextStyle(fontSize: 14),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        child: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _DetailSection('URL', entry.url),
+              _DetailSection(
+                'Status',
+                entry.statusCode?.toString() ?? '— (pending)',
+              ),
+              _DetailSection(
+                'Duration',
+                _NetworkPanelState.durationLabel(entry.duration),
+              ),
+              if (entry.requestHeaders.isNotEmpty)
+                _DetailSection(
+                  'Request Headers',
+                  entry.requestHeaders.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join('\n'),
+                ),
+              if (entry.requestBody != null && entry.requestBody!.isNotEmpty)
+                _DetailSection('Request Body', entry.requestBody!),
+              if (entry.responseHeaders.isNotEmpty)
+                _DetailSection(
+                  'Response Headers',
+                  entry.responseHeaders.entries
+                      .map((e) => '${e.key}: ${e.value}')
+                      .join('\n'),
+                ),
+              if (_isXhrOrFetch && hasResponse) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text(
+                      'Response',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const Spacer(),
+                    ToggleButtons(
+                      isSelected: [
+                        _responseView == _ResponseView.raw,
+                        _responseView == _ResponseView.preview,
+                      ],
+                      onPressed: (i) => setState(
+                        () => _responseView =
+                            i == 0 ? _ResponseView.raw : _ResponseView.preview,
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 56,
+                        minHeight: 28,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                      textStyle: const TextStyle(fontSize: 11),
+                      children: const [Text('Raw'), Text('Preview')],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                SelectableText(
+                  responseContent!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ] else if (hasResponse)
+                _DetailSection(
+                  'Response Preview',
+                  entry.responseBodyPreview!,
+                ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        if (_isXhrOrFetch)
+          TextButton.icon(
+            icon: const Icon(Icons.terminal, size: 15),
+            label: const Text('Copy as cURL'),
+            onPressed: () => _copy(context, _buildCurl(entry), 'cURL command'),
+          ),
+        if (hasResponse)
+          TextButton.icon(
+            icon: const Icon(Icons.copy, size: 15),
+            label: const Text('Copy Response'),
+            onPressed: () =>
+                _copy(context, entry.responseBodyPreview!, 'Response'),
+          ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Close'),
+        ),
+      ],
     );
   }
 }

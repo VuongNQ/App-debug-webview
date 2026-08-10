@@ -1,6 +1,16 @@
 import 'package:flutter/foundation.dart';
 
-enum NetworkEntryType { xhr, fetch, resource }
+enum NetworkEntryType {
+  xhr,
+  fetch,
+  document,
+  stylesheet,
+  script,
+  image,
+  media,
+  socket,
+  other,
+}
 
 @immutable
 class NetworkEntry {

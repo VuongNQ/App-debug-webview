@@ -98,6 +98,26 @@ class _PreviewScreenState extends State<PreviewScreen> {
     }
   }
 
+  static NetworkEntryType _resourceTypeFromInitiator(String? t) {
+    switch (t?.toLowerCase()) {
+      case 'script':
+        return NetworkEntryType.script;
+      case 'img':
+        return NetworkEntryType.image;
+      case 'link':
+      case 'css':
+        return NetworkEntryType.stylesheet;
+      case 'iframe':
+      case 'use':
+        return NetworkEntryType.document;
+      case 'video':
+      case 'audio':
+        return NetworkEntryType.media;
+      default:
+        return NetworkEntryType.other;
+    }
+  }
+
   Map<String, String> _toStringMap(Map<String, dynamic>? map) =>
       map?.map((k, v) => MapEntry(k, v.toString())) ?? {};
 
@@ -338,7 +358,7 @@ class _PreviewScreenState extends State<PreviewScreen> {
                 requestHeaders: const {},
                 startTime: now.subtract(Duration(milliseconds: durationMs)),
                 endTime: now,
-                type: NetworkEntryType.resource,
+                type: _resourceTypeFromInitiator(resource.initiatorType),
               );
               _networkLogNotifier.value = [..._networkLogNotifier.value, entry];
             },
