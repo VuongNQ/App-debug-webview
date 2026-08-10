@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/network_entry.dart';
@@ -355,8 +354,6 @@ class _MethodBadge extends StatelessWidget {
   }
 }
 
-enum _ResponseView { raw, preview }
-
 class _DetailDialog extends StatefulWidget {
   final NetworkEntry entry;
   const _DetailDialog({required this.entry});
@@ -366,20 +363,9 @@ class _DetailDialog extends StatefulWidget {
 }
 
 class _DetailDialogState extends State<_DetailDialog> {
-  _ResponseView _responseView = _ResponseView.preview;
-
   bool get _isXhrOrFetch =>
       widget.entry.type == NetworkEntryType.xhr ||
       widget.entry.type == NetworkEntryType.fetch;
-
-  static String _prettyJson(String raw) {
-    try {
-      final decoded = jsonDecode(raw);
-      return const JsonEncoder.withIndent('  ').convert(decoded);
-    } catch (_) {
-      return raw;
-    }
-  }
 
   static String _buildCurl(NetworkEntry e) {
     final buf = StringBuffer('curl');
@@ -412,11 +398,6 @@ class _DetailDialogState extends State<_DetailDialog> {
   Widget build(BuildContext context) {
     final entry = widget.entry;
     final hasResponse = entry.responseBodyPreview != null;
-    final responseContent = hasResponse
-        ? (_responseView == _ResponseView.preview
-            ? _prettyJson(entry.responseBodyPreview!)
-            : entry.responseBodyPreview!)
-        : null;
 
     return AlertDialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
@@ -464,53 +445,8 @@ class _DetailDialogState extends State<_DetailDialog> {
                       .map((e) => '${e.key}: ${e.value}')
                       .join('\n'),
                 ),
-              if (_isXhrOrFetch && hasResponse) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      'Response',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.grey.shade600,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0.3,
-                      ),
-                    ),
-                    const Spacer(),
-                    ToggleButtons(
-                      isSelected: [
-                        _responseView == _ResponseView.raw,
-                        _responseView == _ResponseView.preview,
-                      ],
-                      onPressed: (i) => setState(
-                        () => _responseView =
-                            i == 0 ? _ResponseView.raw : _ResponseView.preview,
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 56,
-                        minHeight: 28,
-                      ),
-                      borderRadius: BorderRadius.circular(6),
-                      textStyle: const TextStyle(fontSize: 11),
-                      children: const [Text('Raw'), Text('Preview')],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                SelectableText(
-                  responseContent!,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                const SizedBox(height: 8),
-              ] else if (hasResponse)
-                _DetailSection(
-                  'Response Preview',
-                  entry.responseBodyPreview!,
-                ),
+              if (hasResponse)
+                _DetailSection('Response', entry.responseBodyPreview!),
             ],
           ),
         ),

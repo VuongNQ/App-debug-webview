@@ -1,5 +1,5 @@
 ---
-description: "Use when implementing, debugging, or testing the Flutter WebView debugger app in apps/webview-debug-flutter. Covers WebViewConfig persistence, config-to-preview settings, JavaScript bridge handlers, navigation, platform settings, and Flutter validation."
+description: "Use when implementing, debugging, or testing the Flutter WebView debugger app in apps/webview-debug-flutter. Covers WebViewConfig persistence, config-to-preview settings, JavaScript bridge handlers, navigation, network panel, platform settings, and Flutter validation."
 name: "WebView Debug Flutter App Conventions"
 applyTo: "apps/webview-debug-flutter/**"
 ---
@@ -26,3 +26,24 @@ applyTo: "apps/webview-debug-flutter/**"
 - For Windows Android builds, preserve the Kotlin in-process, non-incremental, non-parallel Gradle settings unless a verified tooling change makes them unnecessary.
 - When changing behavior, update tests in apps/webview-debug-flutter/test to cover defaults, config loading, URL validation, persistence compatibility, and the affected UI flow without relying on a real network or platform WebView when avoidable.
 - Run dart format --output=none --set-exit-if-changed lib test, flutter analyze, and the focused or full flutter test command from apps/webview-debug-flutter before completing a change.
+
+## Network DevTools Panel
+
+- The network panel lives in lib/screens/network_panel.dart and its data model in lib/models/network_entry.dart. Do not inline network capture logic elsewhere.
+- NetworkEntry is an immutable value object. Extend it with copyWith; never mutate fields directly.
+- NetworkEntryType has nine values: xhr, fetch, document, stylesheet, script, image, media, socket, other. Map new resource sub-types here rather than adding a broad catch-all.
+- Use _resourceTypeFromInitiator(String?) in PreviewScreen to map LoadedResource.initiatorType to the correct NetworkEntryType. Extend that switch when new initiator types are needed.
+- Network capture in PreviewScreen uses three hooks: shouldInterceptAjaxRequest (XHR, both platforms), onAjaxReadyStateChange (XHR response, update entry via copyWith when readyState == DONE), and shouldInterceptFetchRequest (Fetch, Android only). Always return the original request object from intercept callbacks to avoid blocking requests.
+- useShouldInterceptAjaxRequest and useShouldInterceptFetchRequest are set to true unconditionally in InAppWebViewSettings because they serve the debug panel, not the page config.
+- useOnLoadResource follows widget.config.useOnLoadResource; resource entries appear only when the user enables it in config.
+- The network log is a ValueNotifier<List<NetworkEntry>>. Add entries by replacing the list value (spread + append) rather than mutating the existing list. Match XHR responses by lastIndexWhere on url + type + null statusCode.
+- Attach a listener on the ValueNotifier in initState to call setState for badge count updates. Dispose the notifier in dispose.
+- NetworkPanel is a StatefulWidget. Its only local state is the active NetworkFilter. All list reactivity comes from ValueListenableBuilder over the shared notifier.
+- NetworkFilter has seven values: all, xhrFetch, doc, css, js, image, socket. Filtering is applied inside the builder; the badge count reflects the filtered length.
+- _DetailDialog is a StatefulWidget shown via showDialog. It has no local state after the Raw/Preview toggle was removed. If no state remains, prefer converting it to a StatelessWidget.
+- The cURL builder (_buildCurl) escapes single quotes in the body with the POSIX '\'' idiom. Keep it side-effect-free and static.
+- Copy actions use Clipboard.setData followed by a mounted check before showing the ScaffoldMessenger snackbar.
+- Copy as cURL and Copy Response actions are shown only for xhr/fetch entries; Copy Response additionally requires responseBodyPreview != null.
+- Response body is shown as raw selectable text via _DetailSection. Do not re-introduce a Raw/Preview toggle without an explicit request.
+- The network FAB button uses Badge (Material 3) with isLabelVisible driven by the log length. heroTag must be unique: 'webview-network-action'.
+- The panel is opened via showModalBottomSheet with isScrollControlled: true and useSafeArea: true. Pass logNotifier and an onClear callback that sets the notifier value to [].

@@ -1,6 +1,6 @@
 ---
 name: flutter-webview-config-change
-description: "Use when adding, renaming, removing, migrating, or debugging a Flutter WebViewConfig option across ConfigScreen, SharedPreferences JSON, PreviewScreen InAppWebViewSettings, Android or iOS settings, and tests."
+description: "Use when adding, renaming, removing, migrating, or debugging a Flutter WebViewConfig option across ConfigScreen, SharedPreferences JSON, PreviewScreen InAppWebViewSettings, Android or iOS settings, and tests. Do NOT use for network panel changes (NetworkEntry, NetworkFilter, NetworkPanel, capture hooks in PreviewScreen) — apply the Network DevTools Panel rules in the instructions file instead."
 argument-hint: "Describe the WebView config option and its expected default and platform behavior"
 user-invocable: true
 disable-model-invocation: false
